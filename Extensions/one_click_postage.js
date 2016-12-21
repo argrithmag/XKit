@@ -106,6 +106,11 @@ XKit.extensions.one_click_postage = new Object({
 			default: false,
 			value: false
 		},
+		"enable_tag_cleanup": {
+			text: "Enable clean up of tags: Remove extra white space and de-dupe",
+			default: false,
+			value: false
+		},
 		"show_reverse_ui": {
 			text: "Use the Reverse UI on the popup-window (popup on top of reblog button)",
 			default: true,
@@ -1004,6 +1009,11 @@ XKit.extensions.one_click_postage = new Object({
 				return;
 			}
 		}
+		// If you are on the search screen, box_id == undefined and previous_id == undefined
+		// so it will always treat them as equal.  This causes the tag list to be set on the
+		// first display of the menu.  
+		// If we do get to this point in the code, then resetting the box here won't hurt anything.
+		XKit.extensions.one_click_postage.reset_box();
 
 		// Re-show the caption stuff.
 		if (XKit.extensions.one_click_postage.preferences.show_caption.value) {
@@ -1033,6 +1043,9 @@ XKit.extensions.one_click_postage = new Object({
 		if (!XKit.extensions.one_click_postage.auto_tagger_done) {
 			XKit.extensions.one_click_postage.auto_tagger_done = true;
 			tags = tags + (tags?", ":"") + this.get_auto_tagger_tags(post_obj, state, false);
+		}
+		if(XKit.extensions.one_click_postage.preferences.enable_tag_cleanup.value) {
+			tags = XKit.extensions.one_click_postage.cleanup_tags(tags);
 		}
 		$("#x1cpostage_tags").val(tags);
 
@@ -1194,7 +1207,9 @@ XKit.extensions.one_click_postage = new Object({
 		} else {
 			tags = this.add_auto_tagger_state_tags(tags, state);
 		}
-
+		if(XKit.extensions.one_click_postage.preferences.enable_tag_cleanup.value) {
+			tags = XKit.extensions.one_click_postage.cleanup_tags(tags);
+		}
 		GM_xmlhttpRequest({
 			method: "POST",
 			url: "http://www.tumblr.com/svc/post/fetch",
@@ -1487,7 +1502,11 @@ XKit.extensions.one_click_postage = new Object({
 		console.log("already_reblogged length is " + XKit.extensions.one_click_postage.already_reblogged.length);
 		XKit.storage.set("one_click_postage","already_reblogged", JSON.stringify(XKit.extensions.one_click_postage.already_reblogged));
 	},
-
+	cleanup_tags: function(tags) {
+		/* remove extra spaces around the tags and separator */
+		tags = tags.replace( / +/g, ' ' ).replace(/ ,+/g, ',').replace(/, +/g, ',').trim();         	
+		return tags.split(",").filter(function(v, i, a){ return i == a.indexOf(v) }).join(); /* de-dupe */          
+	},
 	show_error: function(code, state) {
 		var m_word = "reblog";
 		if (state === 1) { m_word = "draft"; }
